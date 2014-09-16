@@ -11,7 +11,41 @@ const Cu = Components.utils;
 Cu.import("resource://gre/modules/Services.jsm");
 
 // imports
-var utils = {}; Cu.import('resource://mozmill/stdlib/utils.js', utils);
+var utils = {};
+
+/**
+ * Retrieve the outer window id for the given window.
+ *
+ * @param {Number} aWindow
+ *        Window to retrieve the id from.
+ * @returns {Boolean} The outer window id
+ **/
+utils.getWindowId = function getWindowId(aWindow) {
+  try {
+    // Normally we can retrieve the id via window utils
+    return aWindow.QueryInterface(Ci.nsIInterfaceRequestor).
+                   getInterface(Ci.nsIDOMWindowUtils).
+                   outerWindowID;
+  } catch (e) {
+    // ... but for observer notifications we need another interface
+    return aWindow.QueryInterface(Ci.nsISupportsPRUint64).data;
+  }
+}
+
+utils.sleep = function () {}
+
+utils.getChromeWindow = function getChromeWindow(aWindow) {
+  var chromeWin = aWindow.QueryInterface(Ci.nsIInterfaceRequestor)
+                  .getInterface(Ci.nsIWebNavigation)
+                  .QueryInterface(Ci.nsIDocShellTreeItem)
+                  .rootTreeItem
+                  .QueryInterface(Ci.nsIInterfaceRequestor)
+                  .getInterface(Ci.nsIDOMWindow)
+                  .QueryInterface(Ci.nsIDOMChromeWindow);
+
+  return chromeWin;
+}
+
 
 var uuidgen = Cc["@mozilla.org/uuid-generator;1"].getService(Ci.nsIUUIDGenerator);
 
