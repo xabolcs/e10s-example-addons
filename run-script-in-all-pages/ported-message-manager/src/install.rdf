@@ -11,10 +11,11 @@
     <em:description>Modifies every page the user loads</em:description>
     <em:creator>Will Bamberg</em:creator>
     <em:developer>Will Bamberg</em:developer>
+    <em:developer>Szabolcs Hubai</em:developer>
     <em:homepageURL>https://github.com/mdn/e10s-example-addons/</em:homepageURL>
 
     <!-- Current version -->
-    <em:version>0.1</em:version>
+    <em:version>0.1.1060238bug.20140916024923</em:version>
 
     <!-- Firefox meta info -->
     <em:targetApplication>
