@@ -176,8 +176,8 @@ var windowReadyObserver = {
     // on such an instance. Otherwise load events will not be handled.
     var win = utils.getChromeWindow(aSubject);
 
-    // var id = utils.getWindowId(win);
-    // dump("*** 'toplevel-window-ready' observer notification: id=" + id + "\n");
+    var id = utils.getWindowId(win);
+    dump("*** 'toplevel-window-ready' observer notification: id=" + id + "\n");
     attachEventListeners(win);
   }
 };
@@ -187,7 +187,7 @@ var windowReadyObserver = {
 var windowCloseObserver = {
   observe: function wco_observe(aSubject, aTopic, aData) {
     var id = utils.getWindowId(aSubject);
-    // dump("*** 'outer-window-destroyed' observer notification: id=" + id + "\n");
+    dump("*** 'outer-window-destroyed' observer notification: id=" + id + "\n");
 
     map.remove(id);
   }
@@ -208,7 +208,7 @@ function attachEventListeners(aWindow) {
     // see https://bugzilla.mozilla.org/show_bug.cgi?id=690829
     if ("defaultView" in doc) {
       var id = utils.getWindowId(doc.defaultView);
-      // dump("*** 'pageshow' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+      dump("*** 'pageshow' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
       map.updatePageLoadStatus(id, true);
     }
 
@@ -223,7 +223,7 @@ function attachEventListeners(aWindow) {
     // Only update the flag if we have a document as target
     if ("defaultView" in doc) {
       var id = utils.getWindowId(doc.defaultView);
-      // dump("*** 'DOMContentLoaded' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+      dump("*** 'DOMContentLoaded' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
 
       // We only care about error pages for DOMContentLoaded
       var errorRegex = /about:.+(error)|(blocked)\?/;
@@ -247,7 +247,7 @@ function attachEventListeners(aWindow) {
     // Only update the flag if we have a document as target
     if ("defaultView" in doc) {
       var id = utils.getWindowId(doc.defaultView);
-      // dump("*** 'beforeunload' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+      dump("*** 'beforeunload' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
       map.updatePageLoadStatus(id, false);
     }
 
@@ -260,7 +260,7 @@ function attachEventListeners(aWindow) {
     // Only update the flag if we have a document as target
     if ("defaultView" in doc) {
       var id = utils.getWindowId(doc.defaultView);
-      // dump("*** 'pagehide' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+      dump("*** 'pagehide' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
       map.updatePageLoadStatus(id, false);
     }
     // If event.persisted is true the beforeUnloadHandler would never fire
@@ -271,7 +271,7 @@ function attachEventListeners(aWindow) {
 
   var onWindowLoaded = function (aEvent) {
     var id = utils.getWindowId(aWindow);
-    // dump("*** 'load' event: id=" + id + ", baseURI=" + aWindow.document.baseURI + "\n");
+    dump("*** 'load' event: id=" + id + ", baseURI=" + aWindow.document.baseURI + "\n");
 
     map.update(id, "loaded", true);
 
