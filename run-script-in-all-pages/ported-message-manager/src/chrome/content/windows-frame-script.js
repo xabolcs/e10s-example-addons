@@ -36,110 +36,93 @@ map.updatePageLoadStatus = function (aId, aIsLoaded) {
   dump("*** Page status updated: id=" + aId + ", loaded=" + aIsLoaded + "\n");
 }
 
-/**
- * Attach event listeners
- *
- * @param {ChromeWindow} aWindow
- *        Window to attach listeners on.
- */
-function attachEventListeners(aWindow) {
-  // These are the event handlers
-  var pageShowHandler = function (aEvent) {
-    var doc = aEvent.originalTarget;
 
-    // Only update the flag if we have a document as target
-    // see https://bugzilla.mozilla.org/show_bug.cgi?id=690829
-    if ("defaultView" in doc) {
-      var id = utils.getWindowId(doc.defaultView);
-      dump("*** 'pageshow' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+// These are the event handlers
+var pageShowHandler = function (aEvent) {
+  var doc = aEvent.originalTarget;
+
+  // Only update the flag if we have a document as target
+  // see https://bugzilla.mozilla.org/show_bug.cgi?id=690829
+  if ("defaultView" in doc) {
+    var id = utils.getWindowId(doc.defaultView);
+    dump("*** 'pageshow' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+    map.updatePageLoadStatus(id, true);
+  }
+
+  // We need to add/remove the unload/pagehide event listeners to preserve caching.
+  addEventListener("beforeunload", beforeUnloadHandler, true);
+  addEventListener("pagehide", pageHideHandler, true);
+};
+
+var DOMContentLoadedHandler = function (aEvent) {
+  var doc = aEvent.originalTarget;
+
+  // Only update the flag if we have a document as target
+  if ("defaultView" in doc) {
+    var id = utils.getWindowId(doc.defaultView);
+    dump("*** 'DOMContentLoaded' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+
+    // We only care about error pages for DOMContentLoaded
+    var errorRegex = /about:.+(error)|(blocked)\?/;
+    if (errorRegex.exec(doc.baseURI)) {
+      // Wait about 1s to be sure the DOM is ready
+      utils.sleep(1000);
+
       map.updatePageLoadStatus(id, true);
     }
 
-    // We need to add/remove the unload/pagehide event listeners to preserve caching.
-    aWindow.addEventListener("beforeunload", beforeUnloadHandler, true);
-    aWindow.addEventListener("pagehide", pageHideHandler, true);
-  };
-
-  var DOMContentLoadedHandler = function (aEvent) {
-    var doc = aEvent.originalTarget;
-
-    // Only update the flag if we have a document as target
-    if ("defaultView" in doc) {
-      var id = utils.getWindowId(doc.defaultView);
-      dump("*** 'DOMContentLoaded' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
-
-      // We only care about error pages for DOMContentLoaded
-      var errorRegex = /about:.+(error)|(blocked)\?/;
-      if (errorRegex.exec(doc.baseURI)) {
-        // Wait about 1s to be sure the DOM is ready
-        utils.sleep(1000);
-
-        map.updatePageLoadStatus(id, true);
-      }
-
-      // We need to add/remove the unload event listener to preserve caching.
-      aWindow.addEventListener("beforeunload", beforeUnloadHandler, true);
-    }
-  };
-
-  // beforeunload is still needed because pagehide doesn't fire before the page is unloaded.
-  // still use pagehide for cases when beforeunload doesn't get fired
-  var beforeUnloadHandler = function (aEvent) {
-    var doc = aEvent.originalTarget;
-
-    // Only update the flag if we have a document as target
-    if ("defaultView" in doc) {
-      var id = utils.getWindowId(doc.defaultView);
-      dump("*** 'beforeunload' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
-      map.updatePageLoadStatus(id, false);
-    }
-
-    aWindow.removeEventListener("beforeunload", beforeUnloadHandler, true);
-  };
-
-  var pageHideHandler = function (aEvent) {
-    var doc = aEvent.originalTarget;
-
-    // Only update the flag if we have a document as target
-    if ("defaultView" in doc) {
-      var id = utils.getWindowId(doc.defaultView);
-      dump("*** 'pagehide' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
-      map.updatePageLoadStatus(id, false);
-    }
-    // If event.persisted is true the beforeUnloadHandler would never fire
-    // and we have to remove the event handler here to avoid memory leaks.
-    if (aEvent.persisted)
-      aWindow.removeEventListener("beforeunload", beforeUnloadHandler, true);
-  };
-
-  var onWindowLoaded = function (aEvent) {
-    var id = utils.getWindowId(aWindow);
-    dump("*** 'load' event: id=" + id + ", baseURI=" + aWindow.document.baseURI + "\n");
-
-    map.update(id, "loaded", true);
-
-    // Note: Error pages will never fire a "pageshow" event. For those we
-    // have to wait for the "DOMContentLoaded" event. That's the final state.
-    // Error pages will always have a baseURI starting with
-    // "about:" followed by "error" or "blocked".
-    aWindow.addEventListener("DOMContentLoaded", DOMContentLoadedHandler, true);
-
-    // Page is ready
-    aWindow.addEventListener("pageshow", pageShowHandler, true);
-
-    // Leave page (use caching)
-    aWindow.addEventListener("pagehide", pageHideHandler, true);
-  };
-
-  // If the window has already been finished loading, call the load handler
-  // directly. Otherwise attach it to the current window.
-  if (aWindow.document.readyState === 'complete') {
-    onWindowLoaded();
-  } else {
-    aWindow.addEventListener("load", onWindowLoaded, false);
+    // We need to add/remove the unload event listener to preserve caching.
+    addEventListener("beforeunload", beforeUnloadHandler, true);
   }
-}
+};
 
-attachEventListeners(content);
+// beforeunload is still needed because pagehide doesn't fire before the page is unloaded.
+// still use pagehide for cases when beforeunload doesn't get fired
+var beforeUnloadHandler = function (aEvent) {
+  var doc = aEvent.originalTarget;
 
-dump("windows frame script readystate=" + content.document.readyState + "\n");
+  // Only update the flag if we have a document as target
+  if ("defaultView" in doc) {
+    var id = utils.getWindowId(doc.defaultView);
+    dump("*** 'beforeunload' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+    map.updatePageLoadStatus(id, false);
+  }
+
+  removeEventListener("beforeunload", beforeUnloadHandler, true);
+};
+
+var pageHideHandler = function (aEvent) {
+  var doc = aEvent.originalTarget;
+
+  // Only update the flag if we have a document as target
+  if ("defaultView" in doc) {
+    var id = utils.getWindowId(doc.defaultView);
+    dump("*** 'pagehide' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+    map.updatePageLoadStatus(id, false);
+  }
+  // If event.persisted is true the beforeUnloadHandler would never fire
+  // and we have to remove the event handler here to avoid memory leaks.
+  if (aEvent.persisted)
+    removeEventListener("beforeunload", beforeUnloadHandler, true);
+};
+
+var onWindowLoaded = function (aEvent) {
+  var id = utils.getWindowId(content);
+  dump("*** 'load' event: id=" + id + ", baseURI=" + content.document.baseURI + "\n");
+
+  map.update(id, "loaded", true);
+
+  // Note: Error pages will never fire a "pageshow" event. For those we
+  // have to wait for the "DOMContentLoaded" event. That's the final state.
+  // Error pages will always have a baseURI starting with
+  // "about:" followed by "error" or "blocked".
+  addEventListener("DOMContentLoaded", DOMContentLoadedHandler, true);
+
+  // Page is ready
+  addEventListener("pageshow", pageShowHandler, true);
+
+  // Leave page (use caching)
+  addEventListener("pagehide", pageHideHandler, true);
+};
+
+onWindowLoaded();
