@@ -307,10 +307,18 @@ function handleAttachEventListeners() {
   }
 }
 
-function init() {
-  // Activate observer for new top level windows
-  Services.obs.addObserver(windowReadyObserver, "toplevel-window-ready", false);
-  Services.obs.addObserver(windowCloseObserver, "outer-window-destroyed", false);
+function requestWindowIDMessageListener (aMessage) {
+  dump("******* 'rwid' event: target=" + aMessage.target.nodeName + "\n");
+  var outerWindowID = utils.getWindowId(utils.getChromeWindow(aMessage.target.ownerDocument.defaultView));
+  dump("******* 'rwid' event: target=" + aMessage.target.nodeName + ", outerid=" + outerWindowID +"\n");
+  return outerWindowID;
+}
 
-  handleAttachEventListeners();
+function init() {
+  var globalMM = Cc["@mozilla.org/globalmessagemanager;1"]
+  .getService(Ci.nsIMessageListenerManager);
+
+  globalMM.addMessageListener("request-window-id", requestWindowIDMessageListener);
+  globalMM.loadFrameScript("chrome://modify-all-pages/content/windows-frame-script.js", true);
+
 }

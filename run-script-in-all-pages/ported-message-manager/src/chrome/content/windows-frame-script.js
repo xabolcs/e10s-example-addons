@@ -2,15 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, you can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var EXPORTED_SYMBOLS = ["init", "map"];
-
-const Cc = Components.classes;
-const Ci = Components.interfaces;
-const Cu = Components.utils;
-
-Cu.import("resource://gre/modules/Services.jsm");
-
-// imports
+/**
+ * A compatibility shim for windows.js
+ */
 var utils = {};
 
 /**
@@ -21,177 +15,26 @@ var utils = {};
  * @returns {Boolean} The outer window id
  **/
 utils.getWindowId = function getWindowId(aWindow) {
-  try {
-    // Normally we can retrieve the id via window utils
-    return aWindow.QueryInterface(Ci.nsIInterfaceRequestor).
-                   getInterface(Ci.nsIDOMWindowUtils).
-                   outerWindowID;
-  } catch (e) {
-    // ... but for observer notifications we need another interface
-    return aWindow.QueryInterface(Ci.nsISupportsPRUint64).data;
-  }
+  var responses = sendSyncMessage("request-window-id");
+  var outerWindowID = responses[0];
+  dump('got outer id: ' + outerWindowID + '\n');
+  return outerWindowID;
 }
 
 utils.sleep = function () {}
 
-utils.getChromeWindow = function getChromeWindow(aWindow) {
-  var chromeWin = aWindow.QueryInterface(Ci.nsIInterfaceRequestor)
-                  .getInterface(Ci.nsIWebNavigation)
-                  .QueryInterface(Ci.nsIDocShellTreeItem)
-                  .rootTreeItem
-                  .QueryInterface(Ci.nsIInterfaceRequestor)
-                  .getInterface(Ci.nsIDOMWindow)
-                  .QueryInterface(Ci.nsIDOMChromeWindow);
+/**
+ * A compatibility shim for window.js
+ */
+var map = {}
 
-  return chromeWin;
+map.update = function (aWindowId, aProperty, aValue) {
+  dump("*** windowId updated: property=" + aProperty + ", value=" + aValue + "\n");
 }
 
-
-var uuidgen = Cc["@mozilla.org/uuid-generator;1"].getService(Ci.nsIUUIDGenerator);
-
-/**
- * The window map is used to store information about the current state of
- * open windows, e.g. loaded state
- */
-var map = {
-  _windows : { },
-
-  /**
-   * Check if a given window id is contained in the map of windows
-   *
-   * @param {Number} aWindowId
-   *        Outer ID of the window to check.
-   * @returns {Boolean} True if the window is part of the map, otherwise false.
-   */
-  contains : function map_contains(aWindowId) {
-    return (aWindowId in this._windows);
-  },
-
-  /**
-   * Retrieve the value of the specified window's property.
-   *
-   * @param {Number} aWindowId
-   *        Outer ID of the window to check.
-   * @param {String} aProperty
-   *        Property to retrieve the value from
-   * @return {Object} Value of the window's property
-   */
-  getValue : function map_getValue(aWindowId, aProperty) {
-    if (!this.contains(aWindowId)) {
-      return undefined;
-    } else {
-      var win = this._windows[aWindowId];
-
-      return (aProperty in win) ? win[aProperty]
-                                : undefined;
-    }
-  },
-
-  /**
-   * Remove the entry for a given window
-   *
-   * @param {Number} aWindowId
-   *        Outer ID of the window to check.
-   */
-  remove : function map_remove(aWindowId) {
-    if (this.contains(aWindowId)) {
-      delete this._windows[aWindowId];
-    }
-
-    // dump("* current map: " + JSON.stringify(this._windows) + "\n");
-  },
-
-  /**
-   * Update the property value of a given window
-   *
-   * @param {Number} aWindowId
-   *        Outer ID of the window to check.
-   * @param {String} aProperty
-   *        Property to update the value for
-   * @param {Object}
-   *        Value to set
-   */
-  update : function map_update(aWindowId, aProperty, aValue) {
-    if (!this.contains(aWindowId)) {
-      this._windows[aWindowId] = { };
-    }
-
-    this._windows[aWindowId][aProperty] = aValue;
-    // dump("* current map: " + JSON.stringify(this._windows) + "\n");
-  },
-
-  /**
-   * Update the internal loaded state of the given content window. To identify
-   * an active (re)load action we make use of an uuid.
-   *
-   * @param {Window} aId - The outer id of the window to update
-   * @param {Boolean} aIsLoaded - Has the window been loaded
-   */
-  updatePageLoadStatus : function map_updatePageLoadStatus(aId, aIsLoaded) {
-    this.update(aId, "loaded", aIsLoaded);
-
-    var uuid = this.getValue(aId, "id_load_in_transition");
-
-    // If no uuid has been set yet or when the page gets unloaded create a new id
-    if (!uuid || !aIsLoaded) {
-      uuid = uuidgen.generateUUID();
-      this.update(aId, "id_load_in_transition", uuid);
-    }
-
-    // dump("*** Page status updated: id=" + aId + ", loaded=" + aIsLoaded + ", uuid=" + uuid + "\n");
-  },
-
-  /**
-   * This method only applies to content windows, where we have to check if it has
-   * been successfully loaded or reloaded. An uuid allows us to wait for the next
-   * load action triggered by e.g. controller.open().
-   *
-   * @param {Window} aId - The outer id of the content window to check
-   *
-   * @returns {Boolean} True if the content window has been loaded
-   */
-  hasPageLoaded : function map_hasPageLoaded(aId) {
-    var load_current = this.getValue(aId, "id_load_in_transition");
-    var load_handled = this.getValue(aId, "id_load_handled");
-
-    var isLoaded = this.contains(aId) && this.getValue(aId, "loaded") &&
-                   (load_current !== load_handled);
-
-    if (isLoaded) {
-      // Backup the current uuid so we can check later if another page load happened.
-      this.update(aId, "id_load_handled", load_current);
-    }
-
-    // dump("** Page has been finished loading: id=" + aId + ", status=" + isLoaded + ", uuid=" + load_current + "\n");
-
-    return isLoaded;
-  }
-};
-
-
-// Observer when a new top-level window is ready
-var windowReadyObserver = {
-  observe: function wro_observe(aSubject, aTopic, aData) {
-    // Not in all cases we get a ChromeWindow. So ensure we really operate
-    // on such an instance. Otherwise load events will not be handled.
-    var win = utils.getChromeWindow(aSubject);
-
-    var id = utils.getWindowId(win);
-    dump("*** 'toplevel-window-ready' observer notification: id=" + id + "\n");
-    attachEventListeners(win);
-  }
-};
-
-
-// Observer when a top-level window is closed
-var windowCloseObserver = {
-  observe: function wco_observe(aSubject, aTopic, aData) {
-    var id = utils.getWindowId(aSubject);
-    dump("*** 'outer-window-destroyed' observer notification: id=" + id + "\n");
-
-    map.remove(id);
-  }
-};
+map.updatePageLoadStatus = function (aId, aIsLoaded) {
+  dump("*** Page status updated: id=" + aId + ", loaded=" + aIsLoaded + "\n");
+}
 
 /**
  * Attach event listeners
@@ -297,20 +140,6 @@ function attachEventListeners(aWindow) {
   }
 }
 
-// Attach event listeners to all already open top-level windows
-function handleAttachEventListeners() {
-  var enumerator = Services.wm.getEnumerator("");
+attachEventListeners(content);
 
-  while (enumerator.hasMoreElements()) {
-    var win = enumerator.getNext();
-    attachEventListeners(win);
-  }
-}
-
-function init() {
-  // Activate observer for new top level windows
-  Services.obs.addObserver(windowReadyObserver, "toplevel-window-ready", false);
-  Services.obs.addObserver(windowCloseObserver, "outer-window-destroyed", false);
-
-  handleAttachEventListeners();
-}
+dump("windows frame script readystate=" + content.document.readyState + "\n");
