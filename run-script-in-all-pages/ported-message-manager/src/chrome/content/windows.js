@@ -138,7 +138,7 @@ var map = {
       this.update(aId, "id_load_in_transition", uuid);
     }
 
-    // dump("*** Page status updated: id=" + aId + ", loaded=" + aIsLoaded + ", uuid=" + uuid + "\n");
+    dump("*** Page status updated: id=" + aId + ", loaded=" + aIsLoaded + ", uuid=" + uuid + "\n");
   },
 
   /**
@@ -307,33 +307,18 @@ function handleAttachEventListeners() {
   }
 }
 
-function getOuterWindowIdFromMessage(aMessage) {
-  return utils.getWindowId(utils.getChromeWindow(aMessage.target.ownerDocument.defaultView))
-}
-
-function requestWindowIdMessageListener(aMessage) {
-  dumpn("******* 'rwid' event: target=" + aMessage.target.nodeName);
-  var outerWindowID = getOuterWindowIdFromMessage(aMessage);
-  dumpn("******* 'rwid' event: target=" + aMessage.target.nodeName + ", outerid=" + outerWindowID );
-  return outerWindowID;
-}
-
 function doMapUpdateMessageListener(aMessage) {
   let { windowId, property, value } = aMessage.data;
-  var expectedId = getOuterWindowIdFromMessage(aMessage);
-  var actualId = windowId;
-  map.update(expectedId, property, value);
-  dumpn("******* 'domapupdate' event["+ expectedId + ", " + actualId + "]");
-  return expectedId;
+  map.update(windowId, property, value);
+  dumpn("******* 'domapupdate' event");
+  return undefined;
 }
 
 function doUpdatePageLoadStatusMessageListener(aMessage){
-  let { windowId, property, value } = aMessage.data;
-  var expectedId = getOuterWindowIdFromMessage(aMessage);
-  var actualId = windowId;
-  map.update(expectedId, property, value);
-  dumpn("******* 'doupdatepageloadstatus' event["+ expectedId + ", " + actualId + "]");
-  return expectedId;
+  let { windowId, loaded } = aMessage.data;
+  map.updatePageLoadStatus(windowId, loaded);
+  dumpn("******* 'doupdatepageloadstatus' event");
+  return undefined;
 }
 
 function dumpn(aMsg) {
@@ -346,7 +331,6 @@ function init() {
 
   Services.obs.addObserver(windowReadyObserver, "toplevel-window-ready", false);
   Services.obs.addObserver(windowCloseObserver, "outer-window-destroyed", false);
-  globalMM.addMessageListener("mozmill:request-window-id", requestWindowIdMessageListener);
   globalMM.addMessageListener("mozmill:do-map-update", doMapUpdateMessageListener);
   globalMM.addMessageListener("mozmill:do-map-update-page-load-status", doUpdatePageLoadStatusMessageListener);
 

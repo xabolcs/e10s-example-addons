@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, you can obtain one at http://mozilla.org/MPL/2.0/. */
 
+var {interfaces: Ci} = Components;
+var contentIfaceReq = content.QueryInterface(Ci.nsIInterfaceRequestor);
+var domUtils = contentIfaceReq.getInterface(Ci.nsIDOMWindowUtils);
+
 /**
  * A compatibility shim for windows.js
  */
@@ -15,9 +19,8 @@ var utils = {};
  * @returns {Boolean} The outer window id
  **/
 utils.getWindowId = function getWindowId(aWindow) {
-  var responses = sendSyncMessage("mozmill:request-window-id");
-  var outerWindowId = responses[0];
-  dumpn('got outer id: ' + outerWindowId);
+  var outerWindowId = domUtils.outerWindowID;
+  dumpn('outer id: ' + outerWindowId);
   return outerWindowId;
 }
 
