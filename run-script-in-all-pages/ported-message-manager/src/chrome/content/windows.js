@@ -307,18 +307,47 @@ function handleAttachEventListeners() {
   }
 }
 
-function requestWindowIDMessageListener (aMessage) {
-  dump("******* 'rwid' event: target=" + aMessage.target.nodeName + "\n");
-  var outerWindowID = utils.getWindowId(utils.getChromeWindow(aMessage.target.ownerDocument.defaultView));
-  dump("******* 'rwid' event: target=" + aMessage.target.nodeName + ", outerid=" + outerWindowID +"\n");
+function getOuterWindowIdFromMessage(aMessage) {
+  return utils.getWindowId(utils.getChromeWindow(aMessage.target.ownerDocument.defaultView))
+}
+
+function requestWindowIdMessageListener(aMessage) {
+  dumpn("******* 'rwid' event: target=" + aMessage.target.nodeName);
+  var outerWindowID = getOuterWindowIdFromMessage(aMessage);
+  dumpn("******* 'rwid' event: target=" + aMessage.target.nodeName + ", outerid=" + outerWindowID );
   return outerWindowID;
+}
+
+function doMapUpdateMessageListener(aMessage) {
+  let { windowId, property, value } = aMessage.data;
+  var expectedId = getOuterWindowIdFromMessage(aMessage);
+  var actualId = windowId;
+  map.update(expectedId, property, value);
+  dumpn("******* 'domapupdate' event["+ expectedId + ", " + actualId + "]");
+  return expectedId;
+}
+
+function doUpdatePageLoadStatusMessageListener(aMessage){
+  let { windowId, property, value } = aMessage.data;
+  var expectedId = getOuterWindowIdFromMessage(aMessage);
+  var actualId = windowId;
+  map.update(expectedId, property, value);
+  dumpn("******* 'doupdatepageloadstatus' event["+ expectedId + ", " + actualId + "]");
+  return expectedId;
+}
+
+function dumpn(aMsg) {
+  dump("[windows.js] " + aMsg + "\n");
 }
 
 function init() {
   var globalMM = Cc["@mozilla.org/globalmessagemanager;1"]
   .getService(Ci.nsIMessageListenerManager);
 
-  globalMM.addMessageListener("request-window-id", requestWindowIDMessageListener);
+  globalMM.addMessageListener("mozmill:request-window-id", requestWindowIdMessageListener);
+  globalMM.addMessageListener("mozmill:do-map-update", doMapUpdateMessageListener);
+  globalMM.addMessageListener("mozmill:do-map-update-page-load-status", doUpdatePageLoadStatusMessageListener);
+
   globalMM.loadFrameScript("chrome://modify-all-pages/content/windows-frame-script.js", true);
 
 }

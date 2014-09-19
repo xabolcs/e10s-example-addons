@@ -15,10 +15,10 @@ var utils = {};
  * @returns {Boolean} The outer window id
  **/
 utils.getWindowId = function getWindowId(aWindow) {
-  var responses = sendSyncMessage("request-window-id");
-  var outerWindowID = responses[0];
-  dump('got outer id: ' + outerWindowID + '\n');
-  return outerWindowID;
+  var responses = sendSyncMessage("mozmill:request-window-id");
+  var outerWindowId = responses[0];
+  dumpn('got outer id: ' + outerWindowId);
+  return outerWindowId;
 }
 
 utils.sleep = function () {}
@@ -29,11 +29,22 @@ utils.sleep = function () {}
 var map = {}
 
 map.update = function (aWindowId, aProperty, aValue) {
-  dump("*** windowId updated: property=" + aProperty + ", value=" + aValue + "\n");
+  sendSyncMessage("mozmill:do-map-update", {
+      windowId: aWindowId,
+      property: aProperty,
+      value: aValue
+    }
+  );
+  dumpn("*** windowId updated: " + aWindowId + ", property=" + aProperty + ", value=" + aValue);
 }
 
 map.updatePageLoadStatus = function (aId, aIsLoaded) {
-  dump("*** Page status updated: id=" + aId + ", loaded=" + aIsLoaded + "\n");
+  sendSyncMessage("mozmill:do-map-update-page-load-status", {
+      windowId: aId,
+      loaded: aIsLoaded
+    }
+  );
+  dumpn("*** Page status updated: id=" + aId + ", loaded=" + aIsLoaded);
 }
 
 
@@ -45,7 +56,7 @@ var pageShowHandler = function (aEvent) {
   // see https://bugzilla.mozilla.org/show_bug.cgi?id=690829
   if ("defaultView" in doc) {
     var id = utils.getWindowId(doc.defaultView);
-    dump("*** 'pageshow' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+    dumpn("*** 'pageshow' event: id=" + id + ", baseURI=" + doc.baseURI);
     map.updatePageLoadStatus(id, true);
   }
 
@@ -60,7 +71,7 @@ var DOMContentLoadedHandler = function (aEvent) {
   // Only update the flag if we have a document as target
   if ("defaultView" in doc) {
     var id = utils.getWindowId(doc.defaultView);
-    dump("*** 'DOMContentLoaded' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+    dumpn("*** 'DOMContentLoaded' event: id=" + id + ", baseURI=" + doc.baseURI);
 
     // We only care about error pages for DOMContentLoaded
     var errorRegex = /about:.+(error)|(blocked)\?/;
@@ -84,7 +95,7 @@ var beforeUnloadHandler = function (aEvent) {
   // Only update the flag if we have a document as target
   if ("defaultView" in doc) {
     var id = utils.getWindowId(doc.defaultView);
-    dump("*** 'beforeunload' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+    dumpn("*** 'beforeunload' event: id=" + id + ", baseURI=" + doc.baseURI);
     map.updatePageLoadStatus(id, false);
   }
 
@@ -97,7 +108,7 @@ var pageHideHandler = function (aEvent) {
   // Only update the flag if we have a document as target
   if ("defaultView" in doc) {
     var id = utils.getWindowId(doc.defaultView);
-    dump("*** 'pagehide' event: id=" + id + ", baseURI=" + doc.baseURI + "\n");
+    dumpn("*** 'pagehide' event: id=" + id + ", baseURI=" + doc.baseURI);
     map.updatePageLoadStatus(id, false);
   }
   // If event.persisted is true the beforeUnloadHandler would never fire
@@ -106,9 +117,13 @@ var pageHideHandler = function (aEvent) {
     removeEventListener("beforeunload", beforeUnloadHandler, true);
 };
 
+function dumpn(aMsg) {
+  dump("[windows-frame-script.js] " + aMsg + "\n");
+}
+
 var onWindowLoaded = function (aEvent) {
   var id = utils.getWindowId(content);
-  dump("*** 'load' event: id=" + id + ", baseURI=" + content.document.baseURI + "\n");
+  dumpn("*** 'load' event: id=" + id + ", baseURI=" + content.document.baseURI);
 
   map.update(id, "loaded", true);
 
