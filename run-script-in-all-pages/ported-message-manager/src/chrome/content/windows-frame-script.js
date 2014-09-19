@@ -32,7 +32,7 @@ utils.sleep = function () {}
 var map = {}
 
 map.update = function (aWindowId, aProperty, aValue) {
-  sendSyncMessage("mozmill:do-map-update", {
+  sendAsyncMessage("mozmill:do-map-update", {
       windowId: aWindowId,
       property: aProperty,
       value: aValue
@@ -42,7 +42,7 @@ map.update = function (aWindowId, aProperty, aValue) {
 }
 
 map.updatePageLoadStatus = function (aId, aIsLoaded) {
-  sendSyncMessage("mozmill:do-map-update-page-load-status", {
+  sendAsyncMessage("mozmill:do-map-update-page-load-status", {
       windowId: aId,
       loaded: aIsLoaded
     }
