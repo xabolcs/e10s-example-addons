@@ -178,7 +178,7 @@ var windowReadyObserver = {
 
     var id = utils.getWindowId(win);
     dump("*** 'toplevel-window-ready' observer notification: id=" + id + "\n");
-    attachEventListeners(win);
+    //attachEventListeners(win);
   }
 };
 
@@ -344,6 +344,8 @@ function init() {
   var globalMM = Cc["@mozilla.org/globalmessagemanager;1"]
   .getService(Ci.nsIMessageListenerManager);
 
+  Services.obs.addObserver(windowReadyObserver, "toplevel-window-ready", false);
+  Services.obs.addObserver(windowCloseObserver, "outer-window-destroyed", false);
   globalMM.addMessageListener("mozmill:request-window-id", requestWindowIdMessageListener);
   globalMM.addMessageListener("mozmill:do-map-update", doMapUpdateMessageListener);
   globalMM.addMessageListener("mozmill:do-map-update-page-load-status", doUpdatePageLoadStatusMessageListener);
